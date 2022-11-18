@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: GreatCall PERS Alexa Skill
+
+Parameters:
+  ENVIRONMENT:
+    Description: Build ENVIRONMENT
+    Type: String
+    Default: dev
+    AllowedValues: [dev,test,stage,prod]
+    ConstraintDescription: Select deployment environment
+  ALEXAID:
+    Description: The Alexa Skill ID
+    Type:  String
+    Default: amzn1.ask.skill.2d7e8088-0dbd-4e50-95dd-c077efbe2633
+  VERSION:
+    Type: String
+    Description: The version of the build artifact or branch name
+    Default: "1.0.0"
+
+#
+#  These are ENV variables that will differ per environment
+#
+#  test and qa will be in Mixology AWS Account
+#  stage and prod will be in GC bbyhealth AWS Account
+Mappings:
+  EnvMap:
+    dev:
+      # We use test, but this will map to GC dev PERS environment
+      LoggerName: LogsToES_ASK_dev
+      Akamai: https://app-ssl.cloud-test.bestbuy.com/va
+      GCAPIURL: https://devalexapers.bbyhealth.com
+    test:
+      LoggerName: LogsToES_ASK_dev
+      Akamai: https://app-ssl.cloud-test.bestbuy.com/va
+      GCAPIURL: https://qaalexapers.bbyhealth.com
+    stage:
+      LoggerName: logs_to_es_prod
+      Akamai: https://app-ssl.cloud-test.bestbuy.com/va
+      GCAPIURL: https://stagingalexapers.bbyhealth.com
+    prod:
+      LoggerName: logs_to_es_prod
+      Akamai: https://app-ssl.bestbuy.com/va
+      GCAPIURL: https://alexapers.bbyhealth.com
+
+Resources:
+  AlexaSkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref AWS::StackName
+      Description: !Join [' ', ['GreatCall PERS Alexa Skill Ver',  !Ref VERSION, 'Deployed by CloudFormation'] ]
+      CodeUri: ../
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 2048
+      Timeout: 15
+      # Permissions this Lambda will need
+      Policies:
+        - AmazonSSMReadOnlyAccess  # Perform Parameter store operations
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref ENVIRONMENT
+          ALEXA_APP_ID: !Ref ALEXAID
+          GC_URL: !FindInMap [EnvMap, !Ref ENVIRONMENT, GCAPIURL]
+          AKAMAI_VA_URL: !FindInMap [EnvMap, !Ref ENVIRONMENT, Akamai]
+          VERSION: !Ref VERSION
+      Events:
+        AlexaSkillEvent:
+          Type: AlexaSkill
+          Properties:
+            SkillId: !Ref ALEXAID
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join [ '', [ /aws/lambda/ , !Ref 'AWS::StackName' ] ]
+      RetentionInDays: 365
+
+  LogGroupSubFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn: !Join [':', [ 'arn:aws:lambda', !Ref 'AWS::Region' , !Ref 'AWS::AccountId', 'function' , !FindInMap [EnvMap, !Ref ENVIRONMENT, LoggerName] ] ]
+      LogGroupName: !Ref LambdaLogGroup
+      FilterPattern: ""
+
+  LogGroupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Join [':', [ 'arn:aws:lambda', !Ref 'AWS::Region' , !Ref 'AWS::AccountId', 'function' , !FindInMap [EnvMap, !Ref ENVIRONMENT, LoggerName] ] ]
+      Principal: logs.amazonaws.com
