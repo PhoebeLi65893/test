@@ -1,0 +1,24 @@
+{
+  "name": "amazon-alexa-pers-skill",
+  "version": "1.0.0",
+  "description": "Handles certain events to send to GC / Lively team for their Urgent Response Alexa skill",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/*",
+    "amazonZip": "zip -r amazon-alexa-pers-skill.zip . -x *.idea* *.git*",
+    "deploy:dev": "echo PWD=${pwd} && npm run amazonZip && echo $(aws lambda update-function-code --function-name amazon-alexa-pers-dev --zip-file fileb://${PWD}/amazon-alexa-pers-skill.zip)",
+    "deploy:test": "echo PWD=${pwd} && npm run amazonZip && echo $(aws lambda update-function-code --function-name amazon-alexa-pers-test --zip-file fileb://${PWD}/amazon-alexa-pers-skill.zip)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@git.bestbuy.com/jarvis/amazon-alexa-pers-skill.git"
+  },
+  "author": "JARVIS team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "ask-sdk": "2.11.0",
+    "ask-sdk-core": "2.11.0",
+    "aws-sdk": "2.967.0",
+    "axios": "0.21.1"
+  }
+}
